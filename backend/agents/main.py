@@ -89,6 +89,9 @@ class IntentAgent(BaseAgent):
         options = input_data.get("options", {})
         style = options.get("style", "casual")
         length = options.get("length", "medium")
+        extra_requirements = options.get("extra_requirements", "")
+
+        extra_section = f"\n补充要求：{extra_requirements}" if extra_requirements else ""
 
         prompt = f"""你是一位专业的内容策划师。请分析以下创作需求，给出详细的意图分析。
 
@@ -96,7 +99,7 @@ class IntentAgent(BaseAgent):
 主题：{topic}
 内容类型：{content_type}
 风格：{style}
-长度：{length}
+长度：{length}{extra_section}
 
 【分析要求】
 1. 用户核心意图：用户想要通过这篇内容达到什么目的？
@@ -104,6 +107,7 @@ class IntentAgent(BaseAgent):
 3. 关键要点：列出3-5个必须覆盖的核心要点
 4. 语气风格：具体描述应该采用的写作风格
 5. 结构建议：推荐的内容结构
+6. 补充要求影响：分析用户的补充要求如何影响创作方向
 
 请用中文详细回答，每个部分都要具体展开。"""
 
@@ -117,6 +121,7 @@ class IntentAgent(BaseAgent):
             "content_type": content_type,
             "style": style,
             "length": length,
+            "extra_requirements": extra_requirements,
             "analysis": analysis,
             "next_agent": "dispatcher"
         }
@@ -137,6 +142,9 @@ class DispatcherAgent(BaseAgent):
         content_type = input_data.get("content_type", "article")
         topic = input_data.get("topic", "未知主题")
         style = input_data.get("style", "casual")
+        length = input_data.get("length", "medium")
+        extra_requirements = input_data.get("extra_requirements", "")
+        analysis = input_data.get("analysis", "")
 
         target_agent = self.agent_mapping.get(content_type, "article_creator")
         target_name = {
@@ -155,6 +163,9 @@ class DispatcherAgent(BaseAgent):
             "topic": topic,
             "content_type": content_type,
             "style": style,
+            "length": length,
+            "extra_requirements": extra_requirements,
+            "analysis": analysis,
             "next_agent": target_agent
         }
 
@@ -170,11 +181,21 @@ class ArticleCreatorAgent(BaseAgent):
         style = input_data.get("style", "casual")
         length = input_data.get("length", "medium")
         analysis = input_data.get("analysis", "")
+        extra_requirements = input_data.get("extra_requirements", "")
+
+        extra_section = f"\n【用户补充要求】\n{extra_requirements}\n请务必在创作中满足以上补充要求。" if extra_requirements else ""
+
+        length_map = {
+            "short": "500字以内",
+            "medium": "800-1500字",
+            "long": "2000字以上"
+        }
+        length_desc = length_map.get(length, "800-1500字")
 
         prompt = f"""你是一位资深的内容创作者。请创作一篇关于"{topic}"的高质量文章。
 
 【意图分析参考】
-{analysis}
+{analysis}{extra_section}
 
 【创作要求】
 1. 标题吸引人，能激发读者点击欲望
@@ -184,7 +205,7 @@ class ArticleCreatorAgent(BaseAgent):
 5. 结论总结全文要点，给出行动建议
 6. 风格：{style}
 7. 使用Markdown格式
-8. 总字数800-1500字
+8. 总字数{length_desc}
 
 请直接输出完整文章内容。"""
 
@@ -197,6 +218,8 @@ class ArticleCreatorAgent(BaseAgent):
             "content": content,
             "word_count": len(content),
             "style": style,
+            "length": length,
+            "extra_requirements": extra_requirements,
             "next_agent": "polish"
         }
 
@@ -211,11 +234,14 @@ class TechCreatorAgent(BaseAgent):
         topic = input_data.get("topic", "")
         style = input_data.get("style", "professional")
         analysis = input_data.get("analysis", "")
+        extra_requirements = input_data.get("extra_requirements", "")
+
+        extra_section = f"\n【用户补充要求】\n{extra_requirements}\n请务必在创作中满足以上补充要求。" if extra_requirements else ""
 
         prompt = f"""你是一位技术文档专家。请创作一份关于"{topic}"的技术文档。
 
 【意图分析参考】
-{analysis}
+{analysis}{extra_section}
 
 【文档结构】
 1. 概述：介绍这项技术是什么、解决什么问题
@@ -242,6 +268,7 @@ class TechCreatorAgent(BaseAgent):
             "content": content,
             "code_snippets": 2,
             "style": style,
+            "extra_requirements": extra_requirements,
             "next_agent": "polish"
         }
 
@@ -256,11 +283,14 @@ class SocialCreatorAgent(BaseAgent):
         topic = input_data.get("topic", "")
         style = input_data.get("style", "casual")
         analysis = input_data.get("analysis", "")
+        extra_requirements = input_data.get("extra_requirements", "")
+
+        extra_section = f"\n【用户补充要求】\n{extra_requirements}\n请务必在创作中满足以上补充要求。" if extra_requirements else ""
 
         prompt = f"""你是一位社交媒体内容专家。请创作关于"{topic}"的社交内容。
 
 【意图分析参考】
-{analysis}
+{analysis}{extra_section}
 
 【创作要求】
 提供3个不同版本的文案：
@@ -282,6 +312,7 @@ class SocialCreatorAgent(BaseAgent):
             "content": content,
             "versions": 3,
             "style": style,
+            "extra_requirements": extra_requirements,
             "next_agent": "polish"
         }
 
@@ -295,6 +326,7 @@ class PolishAgent(BaseAgent):
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         content = input_data.get("content", "")
         content_type = input_data.get("type", "article")
+        extra_requirements = input_data.get("extra_requirements", "")
 
         if not content or len(content) < 50:
             return {
@@ -302,12 +334,15 @@ class PolishAgent(BaseAgent):
                 "agent_id": self.agent_id,
                 "status": "completed",
                 "content": content,
+                "extra_requirements": extra_requirements,
                 "detail": "内容过短，跳过润色"
             }
 
+        extra_section = f"\n【用户补充要求（润色时需确保满足）】\n{extra_requirements}" if extra_requirements else ""
+
         prompt = f"""你是一位资深编辑。请对以下内容进行专业润色。
 
-【内容类型】{content_type}
+【内容类型】{content_type}{extra_section}
 【原始内容】
 {content[:2500]}
 
@@ -404,7 +439,9 @@ class AgentManager:
                 "topic": intent_result.get("topic", topic),
                 "content_type": intent_result.get("content_type", content_type),
                 "style": intent_result.get("style", "casual"),
-                "analysis": intent_result.get("analysis", "")
+                "length": intent_result.get("length", "medium"),
+                "analysis": intent_result.get("analysis", ""),
+                "extra_requirements": intent_result.get("extra_requirements", "")
             })
             step2_time = time.time() - step2_start
 
@@ -438,6 +475,7 @@ class AgentManager:
                 "style": intent_result.get("style", "casual"),
                 "length": intent_result.get("length", "medium"),
                 "analysis": intent_result.get("analysis", ""),
+                "extra_requirements": intent_result.get("extra_requirements", ""),
                 "options": options
             })
             step3_time = time.time() - step3_start
@@ -461,7 +499,8 @@ class AgentManager:
             step4_start = time.time()
             polish_result = await self.agents["polish"].execute({
                 "content": creator_result.get("content", ""),
-                "type": content_type
+                "type": content_type,
+                "extra_requirements": creator_result.get("extra_requirements", "")
             })
             step4_time = time.time() - step4_start
 
