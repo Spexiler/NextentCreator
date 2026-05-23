@@ -77,22 +77,40 @@ NextentCreator/
 
 ## 🚀 快速开始
 
-### 1. 启动Python Agent服务
+### 1. 配置 API 密钥
+
+```bash
+# 复制配置模板
+cd NextentCreator/config
+cp .env.example .env
+
+# 编辑 .env 文件，填入你的 API Key
+# 支持的 LLM: OpenAI, Claude, 文心一言, 通义千问, DeepSeek
+```
+
+**详细配置说明**: 请查看 [API 配置指南](docs/API_CONFIGURATION.md)
+
+### 2. 启动 Python Agent 服务
+
 ```bash
 cd backend/agents
 pip install -r requirements.txt
 python main.py
 ```
 
-### 2. 配置PHP环境
-- 使用XAMPP/WAMP等PHP环境
-- 将项目放入web目录
+服务启动后访问: `http://localhost:8000`
+
+### 3. 配置 PHP 环境
+
+- 使用 XAMPP/WAMP 等 PHP 环境
+- 将项目放入 web 目录
 - 访问 `http://localhost/NextentCreator/frontend/index.html`
 
-### 3. 使用创作平台
+### 4. 开始使用
+
 - 选择内容类型（图文/技术/社交）
 - 输入创作主题
-- 点击"开始创作"，观看多Agent协作流程
+- 点击"开始创作"，观看多 Agent 协作流程
 - 获取生成的内容
 
 ## 📄 项目特点

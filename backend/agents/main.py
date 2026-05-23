@@ -14,6 +14,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
+# 导入 LLM 客户端
+try:
+    from llm_client import generate_text
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    print("警告: LLM 客户端未正确配置，将使用模拟模式")
+
 # FastAPI应用
 app = FastAPI(
     title="NextentCreator Agent API",
@@ -71,13 +79,21 @@ class BaseAgent:
         调用大模型API
         支持多种LLM服务接入
         """
-        # 模拟API调用延迟
-        await asyncio.sleep(0.5)
-        
-        # 这里可以接入各种大模型API
-        # 示例：OpenAI、Claude、文心一言、通义千问等
-        
-        return f"[LLM API响应] 基于提示词生成的内容: {prompt[:50]}..."
+        if LLM_AVAILABLE:
+            try:
+                # 使用真实的 LLM API
+                return await generate_text(prompt, max_tokens)
+            except Exception as e:
+                print(f"LLM API 调用失败: {e}")
+                # 降级到模拟模式
+                return self._mock_response(prompt)
+        else:
+            # 模拟模式
+            return self._mock_response(prompt)
+    
+    def _mock_response(self, prompt: str) -> str:
+        """模拟响应（用于测试或 API 未配置时）"""
+        return f"[模拟响应] 基于提示词生成的内容: {prompt[:50]}..."
 
 # ==================== 具体Agent实现 ====================
 
