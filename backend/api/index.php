@@ -21,10 +21,30 @@ $config = [
     'name' => 'NextentCreator API'
 ];
 
-// 路由处理
+// 路由处理 - 支持 index.php 在路径中的情况
 $request_uri = $_SERVER['REQUEST_URI'];
 $request_method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents('php://input'), true);
+
+// 统一路径格式：移除 index.php 和查询参数，获取实际路由
+$script_name = $_SERVER['SCRIPT_NAME'] ?? '';
+$path_info = $_SERVER['PATH_INFO'] ?? '';
+
+if ($path_info) {
+    // 使用 PATH_INFO（当URL为 /index.php/api/create 时，PATH_INFO = /api/create）
+    $route_path = $path_info;
+} else {
+    // 回退：从 REQUEST_URI 中移除脚本路径
+    $route_path = $request_uri;
+    if (strpos($route_path, '?') !== false) {
+        $route_path = substr($route_path, 0, strpos($route_path, '?'));
+    }
+    // 如果路径包含 index.php，提取后面的部分
+    if (strpos($route_path, 'index.php') !== false) {
+        $parts = explode('index.php', $route_path, 2);
+        $route_path = $parts[1] ?: '/';
+    }
+}
 
 // API路由
 $routes = [
@@ -45,7 +65,7 @@ foreach ($routes as $route => $handler) {
     $pattern = preg_replace('/\{([^}]+)\}/', '([^/]+)', $path);
     $pattern = '#^' . $pattern . '$#';
     
-    if ($request_method === $method && preg_match($pattern, $request_uri, $matches)) {
+    if ($request_method === $method && preg_match($pattern, $route_path, $matches)) {
         array_shift($matches); // 移除完整匹配
         $matched = true;
         call_user_func_array($handler, array_merge([$input], $matches));
@@ -168,7 +188,7 @@ function createContent($input) {
     
     // 调用Python Agent服务
     $result = callPythonAgent($type, $topic, $options);
-    
+
     if ($result['success']) {
         logTask($taskId, 'completed', $result);
         echo json_encode([
@@ -179,7 +199,7 @@ function createContent($input) {
                 'type' => $type,
                 'word_count' => str_word_count($result['content']),
                 'created_at' => date('Y-m-d H:i:s'),
-                'agents_involved' => $result['agents']
+                'agents_involved' => $result['agents'] ?? []
             ]
         ]);
     } else {
@@ -237,32 +257,38 @@ function submitFeedback($input) {
  */
 function callPythonAgent($type, $topic, $options) {
     global $config;
-    
+
     // 构建请求数据
     $data = [
         'type' => $type,
         'topic' => $topic,
         'options' => $options
     ];
-    
+
     // 使用cURL调用Python服务
     $ch = curl_init($config['python_api_url'] . '/create');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 120); // 2分钟超时
-    
+    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
-    
+
     if ($httpCode === 200 && $response) {
-        return json_decode($response, true);
+        $decoded = json_decode($response, true);
+        if ($decoded && isset($decoded['success']) && $decoded['success']) {
+            return $decoded;
+        }
+        return ['success' => false, 'error' => 'Python返回无效数据: ' . substr($response, 0, 200)];
     }
-    
-    // 如果Python服务不可用，返回模拟数据（用于演示）
-    return generateMockContent($type, $topic);
+
+    // Python服务不可用，返回明确的错误信息
+    $errorMsg = $curlError ? "连接Python服务失败: $curlError" : "Python服务返回HTTP $httpCode";
+    return ['success' => false, 'error' => $errorMsg . "（请确保已运行: cd backend/agents && python main.py）"];
 }
 
 /**

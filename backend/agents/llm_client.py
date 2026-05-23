@@ -5,13 +5,19 @@ NextentCreator - LLM Client
 """
 
 import os
+import json
 import httpx
 import asyncio
+from pathlib import Path
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
-# 加载环境变量
-load_dotenv()
+# 从 config/.env 加载环境变量（兼容从 backend/agents/ 启动和从项目根启动）
+_env_path = Path(__file__).resolve().parent.parent.parent / "config" / ".env"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path)
+else:
+    load_dotenv()
 
 class LLMClient:
     """统一的大模型 API 客户端"""
@@ -53,6 +59,11 @@ class LLMClient:
             self.base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
             self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
         
+        elif self.provider == "mimo":
+            self.api_key = os.getenv("MIMO_API_KEY", "")
+            self.base_url = os.getenv("MIMO_BASE_URL", "https://api.xiaomimimo.com/v1")
+            self.model = os.getenv("MIMO_MODEL", "mimo-v2-flash")
+        
         else:
             raise ValueError(f"不支持的 LLM 提供商: {self.provider}")
     
@@ -79,6 +90,8 @@ class LLMClient:
             return await self._call_qwen(prompt, max_tokens)
         elif self.provider == "deepseek":
             return await self._call_deepseek(prompt, max_tokens)
+        elif self.provider == "mimo":
+            return await self._call_mimo(prompt, max_tokens)
         else:
             raise ValueError(f"不支持的 LLM 提供商: {self.provider}")
     
@@ -192,6 +205,34 @@ class LLMClient:
             response.raise_for_status()
             data = response.json()
             return data["choices"][0]["message"]["content"]
+    
+    async def _call_mimo(self, prompt: str, max_tokens: int) -> str:
+        """调用 Xiaomi MiMo API（兼容 OpenAI 格式，使用 api-key 头认证）"""
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers={
+                    "api-key": self.api_key,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": self.model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": self.temperature
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            print(f"[MiMo DEBUG] 响应: {json.dumps(data, ensure_ascii=False)[:500]}")
+            if "choices" not in data or not data["choices"]:
+                raise RuntimeError(f"MiMo 响应格式异常: {json.dumps(data, ensure_ascii=False)[:300]}")
+            msg = data["choices"][0]["message"]
+            # MiMo 可能返回 reasoning_content 而不是 content
+            content = msg.get("content", "") or msg.get("reasoning_content", "")
+            if not content:
+                raise RuntimeError(f"MiMo 返回空内容: {json.dumps(data, ensure_ascii=False)[:300]}")
+            return content
 
 
 # 全局 LLM 客户端实例

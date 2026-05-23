@@ -262,14 +262,71 @@ export HTTP_PROXY=http://127.0.0.1:7890
 export HTTPS_PROXY=http://127.0.0.1:7890
 ```
 
-### Q5: 如何查看 API 调用日志？
+### Q5: Python 3.13 安装 pydantic 失败怎么办？
 
-服务运行时会输出日志：
+**原因**: pydantic 2.5.0 没有 Python 3.13 的预编译 wheel，源码编译需要 Rust 工具链。
 
-```python
-# 在 main.py 中已包含日志输出
-print(f"LLM API 调用失败: {e}")
+**解决方案**: 已更新 requirements.txt 中的 pydantic 版本约束为 `pydantic>=2.10.0,<3`，该版本自带 Python 3.13 的预编译 wheel，无需 Rust 编译：
+
+```bash
+pip install -r backend/agents/requirements.txt
 ```
+
+如果仍遇到问题，建议使用 Python 3.11 或 3.12 运行本项目。
+
+---
+
+## 四、MiMo 配置使用说明
+
+### 1. 配置环境变量
+
+编辑 `.env` 文件（位于 `config/.env`），添加以下配置：
+
+```bash
+LLM_PROVIDER=mimo
+MIMO_API_KEY=你的API密钥
+MIMO_BASE_URL=https://api.xiaomimimo.com/v1
+MIMO_MODEL=mimo-v2-flash
+```
+
+### 2. 获取 API Key
+
+1. 访问 [Xiaomi MiMo 开放平台](https://100t.xiaomimimo.com)
+2. 使用小米账号登录
+3. 创建 API Key 并复制
+
+### 3. 模型选择
+
+| 模型名称 | 定位 | 适用场景 |
+|---------|------|---------|
+| `mimo-v2-flash` | 轻量快速版 | 日常对话、内容创作（推荐） |
+| `mimo-v2-pro` | 旗舰级 | 高强度推理、复杂任务 |
+
+### 4. 认证方式
+
+MiMo API 使用 `api-key` 请求头（非 `Authorization: Bearer`）：
+
+```bash
+# 正确认证方式
+curl -X POST https://api.xiaomimimo.com/v1/chat/completions \
+  -H "api-key: 你的API密钥" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "mimo-v2-flash", "messages": [{"role": "user", "content": "你好"}]}'
+```
+
+### 5. 验证连接
+
+```bash
+cd backend/agents
+python -c "
+from llm_client import LLMClient
+import asyncio
+client = LLMClient()
+print(f'MiMo 配置检查: provider={client.provider}, model={client.model}, base_url={client.base_url}')
+"
+```
+
+如果 API Key 有效，启动 Python Agent 服务后，Agent 将使用 MiMo 模型进行真实内容生成。
 
 ---
 

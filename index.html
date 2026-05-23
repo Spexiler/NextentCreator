@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NextentCreator - AI内容创作工作流</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); }
+        .agent-card { transition: all 0.3s ease; }
+        .agent-card:hover { transform: translateY(-5px); }
+        .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(99, 102, 241, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-6 shadow-lg">
+        <div class="container mx-auto px-6 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold">NextentCreator</h1>
+                    <p class="text-indigo-200 text-sm">多Agent协作内容创作平台</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="glass px-4 py-2 rounded-full text-sm">🤖 6 Agents 在线</span>
+                <a href="https://github.com" target="_blank" class="glass px-4 py-2 rounded-full text-sm hover:bg-white/20 transition">
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8">
+        <!-- 创作工作台 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：输入区 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 需求输入卡片 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </span>
+                        创作需求
+                    </h2>
+                    
+                    <!-- 内容类型选择 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">内容类型</label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button onclick="selectType('article')" id="btn-article" class="type-btn p-4 border-2 border-indigo-500 bg-indigo-50 rounded-xl text-center transition hover:shadow-md">
+                                <div class="text-3xl mb-2">📝</div>
+                                <div class="font-medium">图文文章</div>
+                                <div class="text-xs text-gray-500 mt-1">公众号/知乎/博客</div>
+                            </button>
+                            <button onclick="selectType('tech')" id="btn-tech" class="type-btn p-4 border-2 border-gray-200 rounded-xl text-center transition hover:shadow-md hover:border-indigo-300">
+                                <div class="text-3xl mb-2">💻</div>
+                                <div class="font-medium">技术文档</div>
+                                <div class="text-xs text-gray-500 mt-1">教程/文档/代码</div>
+                            </button>
+                            <button onclick="selectType('social')" id="btn-social" class="type-btn p-4 border-2 border-gray-200 rounded-xl text-center transition hover:shadow-md hover:border-indigo-300">
+                                <div class="text-3xl mb-2">📱</div>
+                                <div class="font-medium">社交分享</div>
+                                <div class="text-xs text-gray-500 mt-1">朋友圈/微博/动态</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 主题输入 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">创作主题</label>
+                        <input type="text" id="topic-input" placeholder="请输入你想要创作的主题，例如：如何学习Python编程" 
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition">
+                    </div>
+
+                    <!-- 高级选项 -->
+                    <div class="mb-4">
+                        <button onclick="toggleAdvanced()" class="text-indigo-600 text-sm flex items-center hover:underline">
+                            <svg id="adv-icon" class="w-4 h-4 mr-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                            高级选项
+                        </button>
+                        <div id="advanced-options" class="hidden mt-4 p-4 bg-gray-50 rounded-xl">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">目标字数</label>
+                                    <select id="length-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        <option value="short">简短 (500字以内)</option>
+                                        <option value="medium" selected>中等 (500-2000字)</option>
+                                        <option value="long">长文 (2000字以上)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">风格调性</label>
+                                    <select id="style-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        <option value="professional">专业严谨</option>
+                                        <option value="casual" selected>轻松随意</option>
+                                        <option value="humorous">幽默风趣</option>
+                                        <option value="inspiring">激励人心</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">补充要求（可选）</label>
+                                <textarea id="extra-requirements" rows="2" placeholder="例如：需要包含代码示例、适合初学者阅读..." 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 开始创作按钮 -->
+                    <button onclick="startCreation()" id="start-btn" class="w-full gradient-bg text-white py-4 rounded-xl font-semibold text-lg hover:shadow-lg transform hover:scale-[1.02] transition flex items-center justify-center">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        开始创作
+                    </button>
+                </div>
+
+                <!-- Agent协作流程可视化 -->
+                <div id="agent-flow" class="bg-white rounded-2xl shadow-lg p-6 hidden">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </span>
+                        Agent协作流程
+                    </h2>
+
+                    <!-- 阶段1: 意图识别 -->
+                    <div class="flex justify-center mb-1">
+                        <div id="agent-intent" class="agent-card w-full max-w-lg flex items-center p-4 bg-gray-50 rounded-xl border-2 border-gray-200">
+                            <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-3 shrink-0">
+                                <span class="text-xl">🎯</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-semibold text-sm">意图识别Agent</h3>
+                                <p class="text-xs text-gray-500">解析用户需求，确定内容类型</p>
+                            </div>
+                            <div id="status-intent" class="status-indicator shrink-0 ml-2">
+                                <span class="text-gray-400 text-xs">等待中</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center text-gray-300 text-lg leading-none py-1">↓</div>
+
+                    <!-- 阶段2: 任务分发 -->
+                    <div class="flex justify-center mb-1">
+                        <div id="agent-dispatcher" class="agent-card w-full max-w-lg flex items-center p-4 bg-gray-50 rounded-xl border-2 border-gray-200 opacity-50">
+                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3 shrink-0">
+                                <span class="text-xl">📡</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-semibold text-sm">任务分发Agent</h3>
+                                <p class="text-xs text-gray-500">分发任务到对应专项Agent</p>
+                            </div>
+                            <div id="status-dispatcher" class="status-indicator shrink-0 ml-2">
+                                <span class="text-gray-400 text-xs">等待中</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center text-gray-400 text-xs py-1">
+                        <span class="px-3 py-1 bg-gray-100 rounded-full">分发到专项Agent</span>
+                    </div>
+
+                    <!-- 阶段3: 三个专项创作Agent并排 -->
+                    <div class="grid grid-cols-3 gap-3 mb-1">
+                        <div id="agent-article" class="agent-card flex flex-col items-center p-3 bg-gray-50 rounded-xl border-2 border-gray-200 opacity-50 text-center">
+                            <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mb-2">
+                                <span class="text-xl">📝</span>
+                            </div>
+                            <h3 class="font-semibold text-xs">图文创作Agent</h3>
+                            <p class="text-xs text-gray-500 mt-1">长图文内容创作</p>
+                            <div id="status-article" class="status-indicator mt-2">
+                                <span class="text-gray-400 text-xs">等待中</span>
+                            </div>
+                        </div>
+                        <div id="agent-tech" class="agent-card flex flex-col items-center p-3 bg-gray-50 rounded-xl border-2 border-gray-200 opacity-50 text-center">
+                            <div class="w-10 h-10 bg-cyan-100 rounded-full flex items-center justify-center mb-2">
+                                <span class="text-xl">💻</span>
+                            </div>
+                            <h3 class="font-semibold text-xs">技术创作Agent</h3>
+                            <p class="text-xs text-gray-500 mt-1">技术文档/教程创作</p>
+                            <div id="status-tech" class="status-indicator mt-2">
+                                <span class="text-gray-400 text-xs">等待中</span>
+                            </div>
+                        </div>
+                        <div id="agent-social" class="agent-card flex flex-col items-center p-3 bg-gray-50 rounded-xl border-2 border-gray-200 opacity-50 text-center">
+                            <div class="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center mb-2">
+                                <span class="text-xl">📱</span>
+                            </div>
+                            <h3 class="font-semibold text-xs">社交创作Agent</h3>
+                            <p class="text-xs text-gray-500 mt-1">短内容/社交帖子创作</p>
+                            <div id="status-social" class="status-indicator mt-2">
+                                <span class="text-gray-400 text-xs">等待中</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center text-gray-300 text-lg leading-none py-1">↓</div>
+
+                    <!-- 阶段4: 润色优化 -->
+                    <div class="flex justify-center">
+                        <div id="agent-polish" class="agent-card w-full max-w-lg flex items-center p-4 bg-gray-50 rounded-xl border-2 border-gray-200 opacity-50">
+                            <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-3 shrink-0">
+                                <span class="text-xl">✨</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-semibold text-sm">润色优化Agent</h3>
+                                <p class="text-xs text-gray-500">质量把关和风格优化</p>
+                            </div>
+                            <div id="status-polish" class="status-indicator shrink-0 ml-2">
+                                <span class="text-gray-400 text-xs">等待中</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 结果展示区 -->
+                <div id="result-area" class="bg-white rounded-2xl shadow-lg p-6 hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold flex items-center">
+                            <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </span>
+                            创作结果
+                        </h2>
+                        <div class="flex space-x-2">
+                            <button onclick="copyResult()" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                复制
+                            </button>
+                            <button onclick="saveToLocal()" class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                保存
+                            </button>
+                            <button onclick="exportMarkdown()" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                导出Markdown
+                            </button>
+                        </div>
+                    </div>
+                    <div id="result-content" class="prose max-w-none p-4 bg-gray-50 rounded-xl min-h-[300px]">
+                        <!-- 结果内容将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：信息面板 -->
+            <div class="space-y-6">
+                <!-- 项目介绍 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="font-semibold mb-4">关于本项目</h3>
+                    <p class="text-sm text-gray-600 mb-4">
+                        基于多Agent协作架构的智能内容创作系统，支持图文、技术文档、社交分享等多种内容类型。
+                    </p>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center text-gray-600">
+                            <svg class="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            多Agent协作架构
+                        </div>
+                        <div class="flex items-center text-gray-600">
+                            <svg class="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            长链推理能力
+                        </div>
+                        <div class="flex items-center text-gray-600">
+                            <svg class="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            端到端自动化
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent状态 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="font-semibold mb-4">Agent状态</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">🎯 意图识别</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">在线</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">📡 任务分发</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">在线</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">📝 图文创作</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">在线</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">💻 技术创作</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">在线</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">📱 社交创作</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">在线</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm">✨ 润色优化</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">在线</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 保存历史 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="font-semibold mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        保存历史
+                    </h3>
+                    <div id="save-history" class="max-h-[300px] overflow-y-auto">
+                        <p class="text-xs text-gray-400 text-center py-4">暂无保存记录</p>
+                    </div>
+                </div>
+
+                <!-- 使用统计 -->
+                <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
+                    <h3 class="font-semibold mb-4">创作统计</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-center">
+                            <div class="text-3xl font-bold" id="stat-count">0</div>
+                            <div class="text-sm text-indigo-200">已创作</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold" id="stat-saved">0</div>
+                            <div class="text-sm text-indigo-200">已保存</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let selectedType = 'article';
+
+        function selectType(type) {
+            selectedType = type;
+            // 重置所有按钮样式
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                btn.classList.remove('border-indigo-500', 'bg-indigo-50');
+                btn.classList.add('border-gray-200');
+            });
+            // 设置选中样式
+            document.getElementById(`btn-${type}`).classList.remove('border-gray-200');
+            document.getElementById(`btn-${type}`).classList.add('border-indigo-500', 'bg-indigo-50');
+        }
+
+        function toggleAdvanced() {
+            const options = document.getElementById('advanced-options');
+            const icon = document.getElementById('adv-icon');
+            if (options.classList.contains('hidden')) {
+                options.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                options.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        async function startCreation() {
+            const topic = document.getElementById('topic-input').value;
+            if (!topic.trim()) {
+                alert('请输入创作主题');
+                return;
+            }
+
+            // 显示Agent流程
+            document.getElementById('agent-flow').classList.remove('hidden');
+            document.getElementById('result-area').classList.add('hidden');
+
+            // 禁用开始按钮
+            const btn = document.getElementById('start-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="flex space-x-1"><div class="w-2 h-2 bg-white rounded-full typing-dot"></div><div class="w-2 h-2 bg-white rounded-full typing-dot"></div><div class="w-2 h-2 bg-white rounded-full typing-dot"></div></div>';
+
+            // 重置所有Agent状态
+            resetAllAgentStatus();
+
+            // 直接连接Python SSE流，接收实时Agent状态
+            try {
+                const response = await fetch('http://localhost:8000/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: selectedType,
+                        topic: topic,
+                        options: {
+                            style: document.getElementById('style-select').value,
+                            length: document.getElementById('length-select').value
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => '');
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                // 读取SSE流
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let finalResult = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (line.startsWith('event:')) {
+                            const eventType = line.slice(6).trim();
+                            const dataLine = lines[i + 1];
+                            if (dataLine && dataLine.startsWith('data:')) {
+                                const dataStr = dataLine.slice(5).trim();
+                                try {
+                                    const data = JSON.parse(dataStr);
+                                    handleSSEEvent(eventType, data);
+                                    if (eventType === 'complete') {
+                                        finalResult = data;
+                                        incrementCreateCount();
+                                    }
+                                } catch (e) {
+                                    console.error('解析SSE数据失败:', e);
+                                }
+                                i++;
+                            }
+                        }
+                    }
+                }
+
+                if (finalResult && finalResult.success) {
+                    showRealResult(finalResult);
+                } else if (finalResult) {
+                    showError(finalResult.error || '创作失败');
+                }
+
+            } catch (err) {
+                showError('网络错误：' + err.message);
+            }
+        }
+
+        function handleSSEEvent(eventType, data) {
+            if (eventType === 'agent_start') {
+                setAgentStatus(data.agent_id, 'active', data.message);
+            } else if (eventType === 'agent_complete') {
+                setAgentStatus(data.agent_id, 'done', data.detail || '完成');
+            } else if (eventType === 'error') {
+                showError(data.error || '创作失败');
+            }
+        }
+
+        function resetAllAgentStatus() {
+            const allAgents = ['intent', 'dispatcher', 'article', 'tech', 'social', 'polish'];
+            allAgents.forEach(id => {
+                const el = document.getElementById(`agent-${id}`);
+                const statusEl = document.getElementById(`status-${id}`);
+                if (!el || !statusEl) return;
+
+                el.classList.remove('border-green-500', 'bg-green-50', 'border-indigo-500', 'bg-indigo-50');
+                el.classList.add('opacity-50');
+                statusEl.innerHTML = '<span class="text-gray-400 text-xs">等待中</span>';
+            });
+
+            // 非选中的创作Agent标记跳过
+            const creatorAgents = ['article', 'tech', 'social'];
+            creatorAgents.forEach(id => {
+                if (id !== selectedType) {
+                    const el = document.getElementById(`agent-${id}`);
+                    const statusEl = document.getElementById(`status-${id}`);
+                    if (el) el.classList.add('opacity-40');
+                    if (statusEl) statusEl.innerHTML = '<span class="text-gray-300 text-xs">— 跳过</span>';
+                }
+            });
+        }
+
+        // 后端agent_id到前端DOM id的映射
+        const AGENT_ID_MAP = {
+            'article_creator': 'article',
+            'tech_creator': 'tech',
+            'social_creator': 'social',
+            'intent': 'intent',
+            'dispatcher': 'dispatcher',
+            'polish': 'polish'
+        };
+
+        function setAgentStatus(agentId, phase, message) {
+            // 映射后端agent_id到前端DOM id
+            const domId = AGENT_ID_MAP[agentId] || agentId;
+            const el = document.getElementById(`agent-${domId}`);
+            const statusEl = document.getElementById(`status-${domId}`);
+            if (!el || !statusEl) return;
+
+            // 如果这个Agent被标记为跳过，先恢复它
+            el.classList.remove('opacity-40');
+            el.classList.remove('opacity-50');
+            el.classList.remove('border-green-500', 'bg-green-50');
+            el.classList.remove('border-indigo-500', 'bg-indigo-50');
+
+            // 找到文本容器：先尝试找包含 h3 的 div
+            function findTextContainer(element) {
+                const h3 = element.querySelector('h3');
+                if (h3 && h3.parentElement !== element) {
+                    return h3.parentElement;
+                }
+                const divs = element.querySelectorAll(':scope > div');
+                return divs.length >= 2 ? divs[1] : (divs.length >= 1 ? divs[0] : null);
+            }
+
+            if (phase === 'done') {
+                el.classList.add('border-green-500', 'bg-green-50');
+                statusEl.innerHTML = '<svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+                if (message && message !== '完成') {
+                    const existing = el.querySelector('.agent-detail');
+                    if (existing) existing.remove();
+                    const detailEl = document.createElement('div');
+                    detailEl.className = 'text-xs text-green-600 mt-1 truncate agent-detail';
+                    detailEl.textContent = message;
+                    const textContainer = findTextContainer(el);
+                    if (textContainer) textContainer.appendChild(detailEl);
+                }
+            } else if (phase === 'active') {
+                el.classList.add('border-indigo-500', 'bg-indigo-50');
+                statusEl.innerHTML = '<div class="flex space-x-1"><div class="w-2 h-2 bg-indigo-600 rounded-full typing-dot"></div><div class="w-2 h-2 bg-indigo-600 rounded-full typing-dot"></div><div class="w-2 h-2 bg-indigo-600 rounded-full typing-dot"></div></div>';
+                if (message) {
+                    const existing = el.querySelector('.agent-detail');
+                    if (existing) existing.remove();
+                    const detailEl = document.createElement('div');
+                    detailEl.className = 'text-xs text-indigo-600 mt-1 truncate agent-detail';
+                    detailEl.textContent = message;
+                    const textContainer = findTextContainer(el);
+                    if (textContainer) textContainer.appendChild(detailEl);
+                }
+            }
+        }
+
+        function showRealResult(result) {
+            const content = result.content || '';
+            const agents = result.agents || [];
+
+            let agentLogHTML = '';
+            if (agents.length > 0) {
+                agentLogHTML = '<div class="mb-4 p-3 bg-gray-50 rounded-lg"><h4 class="text-sm font-semibold text-gray-600 mb-2">Agent 协作记录</h4>' +
+                    agents.map(a => `<div class="text-xs text-gray-500 flex justify-between py-1 border-b border-gray-100 last:border-0"><span>${a.name}</span><span>${a.action} · ${a.time}</span></div>`).join('') +
+                    '</div>';
+            }
+
+            document.getElementById('result-content').innerHTML =
+                agentLogHTML +
+                '<div class="prose max-w-none">' + content.replace(/\n/g, '<br>') + '</div>';
+            document.getElementById('result-area').classList.remove('hidden');
+
+            // 恢复开始按钮
+            const btn = document.getElementById('start-btn');
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>开始创作';
+        }
+
+        function showError(message) {
+            document.getElementById('result-content').innerHTML =
+                '<div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">' +
+                '<p class="font-semibold">创作失败</p>' +
+                '<p class="text-sm mt-1">' + message + '</p>' +
+                '</div>';
+            document.getElementById('result-area').classList.remove('hidden');
+
+            const btn = document.getElementById('start-btn');
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>开始创作';
+        }
+
+        function copyResult() {
+            const content = document.getElementById('result-content').innerText;
+            navigator.clipboard.writeText(content).then(() => {
+                alert('内容已复制到剪贴板');
+            });
+        }
+
+        let currentResult = null;
+
+        function showRealResult(result) {
+            currentResult = result;
+            const content = result.content || '';
+            const agents = result.agents || [];
+
+            let agentLogHTML = '';
+            if (agents.length > 0) {
+                agentLogHTML = '<div class="mb-4 p-3 bg-gray-50 rounded-lg"><h4 class="text-sm font-semibold text-gray-600 mb-2">Agent 协作记录</h4>' +
+                    agents.map(a => `<div class="text-xs text-gray-500 flex justify-between py-1 border-b border-gray-100 last:border-0"><span>${a.name}</span><span>${a.action} · ${a.time}</span></div>`).join('') +
+                    '</div>';
+            }
+
+            document.getElementById('result-content').innerHTML =
+                agentLogHTML +
+                '<div class="prose max-w-none">' + content.replace(/\n/g, '<br>') + '</div>';
+            document.getElementById('result-area').classList.remove('hidden');
+
+            // 恢复开始按钮
+            const btn = document.getElementById('start-btn');
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>开始创作';
+        }
+
+        function saveToLocal() {
+            if (!currentResult || !currentResult.content) {
+                alert('没有可保存的内容');
+                return;
+            }
+            const saves = JSON.parse(localStorage.getItem('nextent_saves') || '[]');
+            const topic = document.getElementById('topic-input').value || '未命名';
+            const saveItem = {
+                id: Date.now(),
+                topic: topic,
+                type: selectedType,
+                content: currentResult.content,
+                agents: currentResult.agents || [],
+                execution_time: currentResult.execution_time || '',
+                created_at: new Date().toLocaleString('zh-CN')
+            };
+            saves.unshift(saveItem);
+            localStorage.setItem('nextent_saves', JSON.stringify(saves.slice(0, 50)));
+            alert('内容已保存到本地存储');
+            renderSaveHistory();
+        }
+
+        function exportMarkdown() {
+            if (!currentResult || !currentResult.content) {
+                alert('没有可导出的内容');
+                return;
+            }
+            const topic = document.getElementById('topic-input').value || '未命名';
+            const blob = new Blob([currentResult.content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${topic.replace(/[^\w\u4e00-\u9fa5]/g, '_')}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function renderSaveHistory() {
+            const container = document.getElementById('save-history');
+            if (!container) return;
+            const saves = JSON.parse(localStorage.getItem('nextent_saves') || '[]');
+            if (saves.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">暂无保存记录</p>';
+                return;
+            }
+            container.innerHTML = saves.map(s => `
+                <div class="p-3 bg-gray-50 rounded-lg mb-2 cursor-pointer hover:bg-gray-100 transition" onclick="loadSave(${s.id})">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">${s.topic}</p>
+                            <p class="text-xs text-gray-400">${s.created_at} · ${s.execution_time}</p>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteSave(${s.id})" class="ml-2 text-gray-400 hover:text-red-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadSave(id) {
+            const saves = JSON.parse(localStorage.getItem('nextent_saves') || '[]');
+            const item = saves.find(s => s.id === id);
+            if (!item) return;
+            currentResult = { content: item.content, agents: item.agents, execution_time: item.execution_time };
+            document.getElementById('topic-input').value = item.topic;
+            selectedType = item.type;
+            selectType(item.type);
+            showRealResult(currentResult);
+        }
+
+        function deleteSave(id) {
+            let saves = JSON.parse(localStorage.getItem('nextent_saves') || '[]');
+            saves = saves.filter(s => s.id !== id);
+            localStorage.setItem('nextent_saves', JSON.stringify(saves));
+            renderSaveHistory();
+        }
+
+        // 初始化保存历史
+        renderSaveHistory();
+
+        function updateStats() {
+            const saves = JSON.parse(localStorage.getItem('nextent_saves') || '[]');
+            document.getElementById('stat-saved').textContent = saves.length;
+            const count = parseInt(localStorage.getItem('nextent_create_count') || '0');
+            document.getElementById('stat-count').textContent = count;
+        }
+
+        function incrementCreateCount() {
+            const count = parseInt(localStorage.getItem('nextent_create_count') || '0') + 1;
+            localStorage.setItem('nextent_create_count', count);
+            updateStats();
+        }
+
+        updateStats();
+    </script>
+</body>
+</html>
